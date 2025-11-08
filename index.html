@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Stable Expandable Mind Map</title>
+    <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      #mynetwork {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mynetwork"></div>
+
+    <script>
+      const allNodes = [
+        { id: 'main', label: "الخواص والتغيرات", x: 0, y: 0, fixed: true },
+        { id:'حالات المادة', label: "حالات المادة", x: 200, y: -300, hidden: true },
+
+        { id: '1-1', label: "المادة الصلبة (شكل وحجم محددان، جسيمات متراصة)", x: 500, y: -500, hidden: true },
+        { id: '1-2', label: "المادة السائلة (لها صفة الجريان، حجم ثابت، تأخذ شكل الوعاء)", x: 500, y: -400, hidden: true },
+        { id: '1-3', label: "المادة الغازية (شكل وحجم غير ثابتين، قابلة للانضغاط)", x: 500, y: -300, hidden: true },
+        { id: '1-4', label: 'البلازما (غاز متأين، غير شائع، يوجد في النجوم ولوحات النيون)', x: 500, y: -200, hidden: true },
+        { id: '1-5', label: 'البخار (حالة غازية توجد بشكل صلب/سائل في درجات حرارة عادية)', x: 500, y: -100, hidden: true },
+        
+        { id: 'خواص المادة', label: "خواص المادة", x: 200, y: -100, hidden: true },
+
+        { id: '2-1', label: "خواص فيزيائية (ملاحظة/قياس دون تغيير التركيب)", x: 500, y: -200, hidden: true },
+
+        { id: '2-1-1', label:"مميزة (لا تعتمد على الكمية: اللون، الكثافة، درجة الغليان)", x: 700, y: -300, hidden: true },
+        { id: '2-1-2', label:"غير مميزة (تعتمد على الكمية: الكتلة، الحجم، الطول)", x: 700, y: -100, hidden: true },
+
+        { id: '2-2', label: "خواص كيميائية (قدرة المادة على الاتحاد أو التحول لمادة أخرى)", x: 500, y: 0, hidden: true },
+
+        { id: "تغيرات المادة", label: "تغيرات المادة", x: 200, y: 100, hidden: true },
+        { id: "قانون حفظ الكتلة", label: "قانون حفظ الكتلة", x: 200, y: 300, hidden: true },
+        { id:"المخاليط والمحاليل", label: "المخاليط والمحاليل", x: -200, y: -300, hidden: true },
+        { id:"العناصر والمركبات", label: "العناصر والمركبات", x: -200, y: 300, hidden: true },
+        
+      ];
+
+      const allEdges = [
+        { from: "main", to: 'حالات المادة' },
+        { from: "main", to: "خواص المادة" },
+        { from: "main", to: "تغيرات المادة" },
+        { from: "main", to: "قانون حفظ الكتلة" },
+        { from: "main", to: "المخاليط والمحاليل" },
+        { from: "main", to: "العناصر والمركبات" },
+
+        { from: 'حالات المادة', to: '1-1' },
+        { from: 'حالات المادة', to: '1-2' },
+        { from: 'حالات المادة', to: '1-3' },
+        { from: 'حالات المادة', to: '1-4' },
+        { from: 'حالات المادة', to: '1-5' },
+
+        { from: "خواص المادة", to: '2-1' },
+        { from: "2-1", to: '2-1-1' },
+        { from: "2-1", to: '2-1-2' },
+        
+        { from: "خواص المادة", to: '2-2' },
+      ];
+
+      const nodes = new vis.DataSet(allNodes);
+      const edges = new vis.DataSet(allEdges.map(e => ({ ...e, hidden: true })));
+
+      const container = document.getElementById("mynetwork");
+      const data = { nodes, edges };
+
+      const options = {
+        physics: false,
+        nodes: {
+          shape: "box",
+          margin: 10,
+          widthConstraint: { minimum: 100 },
+          heightConstraint: { minimum: 40 },
+          color: { background: "#f0f0f0", border: "#888" },
+          font: { size: 16 }
+        },
+        edges: {
+          arrows: "to",
+          smooth: { type: "cubicBezier", roundness: 0.5 },
+          color: { color: "#999" }
+        },
+        interaction: {
+          hover: true,
+          dragNodes: true,
+          zoomView: true,
+          dragView: true
+        }
+      };
+
+      const network = new vis.Network(container, data, options);
+
+      // always show main branches
+      allEdges.filter(e => e.from === "main").forEach(e => edges.update({ ...e, hidden: false }));
+
+      network.on("click", function (params) {
+        if (params.nodes.length === 0) return;
+        const nodeId = params.nodes[0];
+
+        // find siblings and hide their sub-branches
+        const parent = getParent(nodeId);
+        if (parent) {
+          const siblings = allEdges.filter(e => e.from === parent && e.to !== nodeId).map(e => e.to);
+          siblings.forEach(sib => collapseNode(sib));
+        }
+
+        // toggle the clicked node’s children
+        const children = allEdges.filter(e => e.from === nodeId).map(e => e.to);
+        const anyVisible = children.some(c => !nodes.get(c).hidden);
+
+        if (anyVisible) {
+          collapseNode(nodeId);
+        } else {
+          expandNode(nodeId);
+        }
+      });
+
+      function getParent(nodeId) {
+        const edge = allEdges.find(e => e.to === nodeId);
+        return edge ? edge.from : null;
+      }
+
+      function expandNode(nodeId) {
+        const childrenEdges = allEdges.filter(e => e.from === nodeId);
+        const childIds = [];
+        childrenEdges.forEach(e => {
+          nodes.update({ id: e.to, hidden: false });
+          edges.update({ ...e, hidden: false });
+          childIds.push(e.to);
+        });
+
+        if (childIds.length > 0) {
+          const focusIds = [nodeId, ...childIds];
+          network.focus(nodeId, {
+            scale: 1.5,
+            animation: { duration: 500, easingFunction: "easeInOutQuad" }
+          });
+          setTimeout(() => {
+            network.fit({
+              nodes: focusIds,
+              animation: { duration: 400, easingFunction: "easeInOutQuad" }
+            });
+          }, 500);
+        }
+      }
+
+      function collapseNode(nodeId) {
+        const childrenEdges = allEdges.filter(e => e.from === nodeId);
+        childrenEdges.forEach(e => {
+          collapseNode(e.to);
+          nodes.update({ id: e.to, hidden: true });
+          edges.update({ ...e, hidden: true });
+        });
+      }
+
+      network.once("stabilized", () => network.fit());
+      window.addEventListener("resize", () => network.fit());
+    </script>
+  </body>
+</html>
