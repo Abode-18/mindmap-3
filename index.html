@@ -140,11 +140,28 @@
           hover: true,
           dragNodes: true,
           zoomView: true,
-          dragView: true
-        }
+          dragView: true,
+          navigationButtons: true,
+          keyboard: true
+        },
+        manipulation: { enabled: false }
       };
 
       const network = new vis.Network(container, data, options);
+
+      // color nodes that have children
+      allNodes.forEach(node => {
+        const hasChildren = allEdges.some(e => e.from === node.id);
+        if (hasChildren) {
+          nodes.update({
+            id: node.id,
+            color: {
+              background: "#d6e8ff",
+              border: "#4a90e2"
+            }
+          });
+        }
+      });
 
       // always show main branches
       allEdges.filter(e => e.from === "main").forEach(e => edges.update({ ...e, hidden: false }));
@@ -153,22 +170,17 @@
         if (params.nodes.length === 0) return;
         const nodeId = params.nodes[0];
 
-        // find siblings and hide their sub-branches
         const parent = getParent(nodeId);
         if (parent) {
           const siblings = allEdges.filter(e => e.from === parent && e.to !== nodeId).map(e => e.to);
           siblings.forEach(sib => collapseNode(sib));
         }
 
-        // toggle the clicked node’s children
         const children = allEdges.filter(e => e.from === nodeId).map(e => e.to);
         const anyVisible = children.some(c => !nodes.get(c).hidden);
 
-        if (anyVisible) {
-          collapseNode(nodeId);
-        } else {
-          expandNode(nodeId);
-        }
+        if (anyVisible) collapseNode(nodeId);
+        else expandNode(nodeId);
       });
 
       function getParent(nodeId) {
@@ -188,13 +200,13 @@
         if (childIds.length > 0) {
           const focusIds = [nodeId, ...childIds];
           network.focus(nodeId, {
-            scale: 1.5,
-            animation: { duration: 500, easingFunction: "easeInOutQuad" }
+            scale: 1.2,
+            animation: { duration: 800, easingFunction: "easeInOutQuad" }
           });
           setTimeout(() => {
             network.fit({
               nodes: focusIds,
-              animation: { duration: 400, easingFunction: "easeInOutQuad" }
+              animation: { duration: 800, easingFunction: "easeInOutQuad" }
             });
           }, 500);
         }
@@ -209,8 +221,8 @@
         });
       }
 
-      network.once("stabilized", () => network.fit());
-      window.addEventListener("resize", () => network.fit());
+      network.once("stabilized", () => network.fit({ animation: true }));
+      window.addEventListener("resize", () => network.fit({ animation: true }));
     </script>
   </body>
 </html>
